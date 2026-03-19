@@ -14,7 +14,7 @@ An **autonomous AI agent** that automatically discovers open-source repositories
 - 🎯 **Targeted Contributions** — Point the agent at a specific repository to contribute to
 - 💾 **Persistent Config** — All settings are saved to a local `.env` file for reuse across runs
 - 🛡️ **Dry-Run Mode** — Test the entire pipeline without making any real GitHub changes
-- 📋 **Activity Logging** — Automatically logs all contributions to your own activity repository
+- 📓 **Private Gist Logging** — Activity logs are saved as **private GitHub Gists** (one per day), never committed to the repo — so cloners never see your history
 
 ---
 
@@ -276,7 +276,7 @@ LLM_RETRY_DELAY=2               # Delay between retries (seconds)
 
 5. **Pull Request** — Opens a PR from your fork's feature branch to the original repository's default branch, with a meaningful title and description.
 
-6. **Logging** — Appends a record of the contribution (repo, PR URL, feature title, timestamp) to your activity log repository.
+6. **Logging** — Appends a formatted Markdown entry to a **private GitHub Gist** (one per day, named `[GH-Populator] Activity Log YYYY-MM-DD`). The log is visible only to you at [gist.github.com](https://gist.github.com) — it is never committed to the repository, so users who clone this project never see your personal contribution history.
 
 ---
 

@@ -1,226 +1,175 @@
 import logging
-import os
 from typing import Dict, Any, Optional
+from datetime import datetime
 from github import Github, GithubException
 from ..utils.github_client import GitHubClient
 from ..utils.config import Config
 
 
 class ActivityLogger:
-    """Logs agent activities to the user's autonomous-coder repository."""
-    
+    """
+    Logs agent activities as private GitHub Gists.
+
+    This approach keeps logs completely off the repository so users who
+    clone the project never see or download them. Each run appends a new
+    block to a persistent daily Gist owned by the authenticated user.
+    """
+
     def __init__(self, github_client: GitHubClient):
         """Initialize the activity logger."""
         self.github_client = github_client
         self.logger = logging.getLogger(__name__)
         self.github = Github(github_client.token)
         self.config = Config()
-        
-        # Get target repository for logging
-        self.target_repo_name = self.config.get('TARGET_REPO', 'paragdhersarepaisewala/autonomous-coder')
-        self.target_repo = None
-        self._init_target_repo()
-    
-    def _init_target_repo(self):
-        """Initialize the target repository for logging activities."""
+
+        # Still keep TARGET_REPO for reference (shown in README / config)
+        self.target_repo_name = self.config.get('TARGET_REPO', '')
+        self.user = None
+        self._init_user()
+
+    def _init_user(self):
+        """Load the authenticated github user."""
         try:
-            self.target_repo = self.github.get_repo(self.target_repo_name)
-            self.logger.info(f"Connected to target repository: {self.target_repo_name}")
-        except GithubException as e:
-            self.logger.error(f"Failed to connect to target repository {self.target_repo_name}: {e}")
-            self.target_repo = None
+            self.user = self.github.get_user()
+            self.logger.info(f"Activity logger ready (Gist-based) for {self.user.login}")
         except Exception as e:
-            self.logger.error(f"Error initializing target repository: {e}")
-            self.target_repo = None
-    
-    def log_contribution(self, 
-                        repository: Dict[str, Any],
-                        feature_idea: Dict[str, Any],
-                        pull_request_url: str,
-                        forked_repo: Dict[str, Any]) -> bool:
-        """Log a contribution to the target repository."""
-        try:
-            if not self.target_repo:
-                self.logger.warning("Target repository not available for logging")
-                return False
-            
-            self.logger.info(f"Logging contribution to {self.target_repo_name}")
-            
-            # Create log entry
-            log_entry = self._create_log_entry(repository, feature_idea, pull_request_url, forked_repo)
-            
-            # Determine log file path (using date-based organization)
-            from datetime import datetime
-            date_str = datetime.now().strftime("%Y-%m-%d")
-            log_file_path = f"logs/{date_str}_activity.log"
-            
-            # Try to get existing log file or create new one
-            try:
-                contents = self.target_repo.get_contents(log_file_path)
-                # If we get a list, it means the path is a directory, so we treat it as if the file doesn't exist.
-                if isinstance(contents, list):
-                    raise Exception("Path is a directory")
-                existing_content = contents.decoded_content.decode('utf-8')
-                sha = contents.sha
-            except Exception:
-                # File doesn't exist yet (or is a directory)
-                existing_content = f"# GitHub Activity Log for {self.github_client.username}\n"
-                existing_content += f"# Started logging on {datetime.now().strftime('%Y-%m-%d')}\n\n"
-                sha = None
-            
-            # Append new log entry
-            new_content = existing_content + log_entry + "\n"
-            
-            # Commit the log file
-            if sha:
-                # Update existing file
-                self.target_repo.update_file(
-                    path=log_file_path,
-                    message=f"Log: {feature_idea['title']} contribution to {repository['full_name']}",
-                    content=new_content,
-                    sha=sha
-                )
-            else:
-                # Create new file
-                self.target_repo.create_file(
-                    path=log_file_path,
-                    message=f"Initial log: {feature_idea['title']} contribution to {repository['full_name']}",
-                    content=new_content
-                )
-            
-            self.logger.info(f"Successfully logged contribution to {log_file_path}")
-            return True
-            
-        except Exception as e:
-            self.logger.error(f"Error logging contribution: {e}")
-            return False
-    
-    def _create_log_entry(self, 
+            self.logger.error(f"Could not authenticate for Gist logging: {e}")
+            self.user = None
+
+    # ──────────────────────────────────────────────────────────
+    # Public API
+    # ──────────────────────────────────────────────────────────
+
+    def log_contribution(self,
                          repository: Dict[str, Any],
                          feature_idea: Dict[str, Any],
                          pull_request_url: str,
-                         forked_repo: Dict[str, Any]) -> str:
-        """Create a formatted log entry."""
-        from datetime import datetime
-        
-        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        
-        entry = f"""## [{timestamp}] Contribution Made
-
-- **Agent**: {self.github_client.username}
-- **Target Repository**: {repository['full_name']}
-- **Feature**: {feature_idea['title']}
-- **Description**: {feature_idea['description']}
-- **Pull Request**: {pull_request_url}
-- **Fork Repository**: {forked_repo['full_name']}
-- **Branch**: {feature_idea.get('branch_name', 'unknown')}
-- **Feature Type**: {feature_idea.get('feature_type', 'utility')}
-
----
-"""
-        return entry
-    
-    def log_agent_start(self) -> bool:
-        """Log when the agent starts."""
+                         forked_repo: Dict[str, Any]) -> bool:
+        """Log a contribution entry to a private GitHub Gist."""
         try:
-            if not self.target_repo:
-                return False
-                
-            from datetime import datetime
+            entry = self._create_log_entry(repository, feature_idea, pull_request_url, forked_repo)
+            return self._append_to_gist(entry, tag="Contribution")
+        except Exception as e:
+            self.logger.error(f"Error logging contribution: {e}")
+            return False
+
+    def log_agent_start(self) -> bool:
+        """Log agent start event."""
+        try:
             timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-            
-            log_entry = f"""## [{timestamp}] Agent Started
-
-- **Agent**: {self.github_client.username}
-- **Status**: Autonomous GitHub Activity Populator agent started
-- **Target Repository for Contributions**: Configured
-- **Logging Repository**: {self.target_repo_name}
-
----
-"""
-            
-            # Append to today's log file
-            date_str = datetime.now().strftime("%Y-%m-%d")
-            log_file_path = f"logs/{date_str}_activity.log"
-            
-            try:
-                contents = self.target_repo.get_contents(log_file_path)
-                existing_content = contents.decoded_content.decode('utf-8')
-                sha = contents.sha
-            except GithubException:
-                existing_content = f"# GitHub Activity Log for {self.github_client.username}\n"
-                existing_content += f"# Started logging on {datetime.now().strftime('%Y-%m-%d')}\n\n"
-                sha = None
-            
-            new_content = existing_content + log_entry + "\n"
-            
-            if sha:
-                self.target_repo.update_file(
-                    path=log_file_path,
-                    message="Log: Agent started",
-                    content=new_content,
-                    sha=sha
-                )
-            else:
-                self.target_repo.create_file(
-                    path=log_file_path,
-                    message="Initial log: Agent started",
-                    content=new_content
-                )
-            
-            return True
+            entry = (
+                f"## [{timestamp}] Agent Started\n\n"
+                f"- **User**: {self.github_client.username}\n"
+                f"- **Status**: Autonomous GitHub Activity Populator started\n\n---\n"
+            )
+            return self._append_to_gist(entry, tag="AgentStart")
         except Exception as e:
             self.logger.error(f"Error logging agent start: {e}")
             return False
-    
+
     def log_agent_stop(self) -> bool:
-        """Log when the agent stops."""
+        """Log agent stop event."""
         try:
-            if not self.target_repo:
-                return False
-                
-            from datetime import datetime
             timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-            
-            log_entry = f"""## [{timestamp}] Agent Stopped
-
-- **Agent**: {self.github_client.username}
-- **Status**: Autonomous GitHub Activity Populator agent stopped
-- **Total Contributions Made**: [This would be tracked by the agent]
-
----
-"""
-            
-            # Append to today's log file
-            date_str = datetime.now().strftime("%Y-%m-%d")
-            log_file_path = f"logs/{date_str}_activity.log"
-            
-            try:
-                contents = self.target_repo.get_contents(log_file_path)
-                existing_content = contents.decoded_content.decode('utf-8')
-                sha = contents.sha
-            except GithubException:
-                existing_content = f"# GitHub Activity Log for {self.github_client.username}\n"
-                existing_content += f"# Started logging on {datetime.now().strftime('%Y-%m-%d')}\n\n"
-                sha = None
-            
-            new_content = existing_content + log_entry + "\n"
-            
-            if sha:
-                self.target_repo.update_file(
-                    path=log_file_path,
-                    message="Log: Agent stopped",
-                    content=new_content,
-                    sha=sha
-                )
-            else:
-                self.target_repo.create_file(
-                    path=log_file_path,
-                    message="Initial log: Agent stopped",
-                    content=new_content
-                )
-            
-            return True
+            entry = (
+                f"## [{timestamp}] Agent Stopped\n\n"
+                f"- **User**: {self.github_client.username}\n"
+                f"- **Status**: Agent finished execution\n\n---\n"
+            )
+            return self._append_to_gist(entry, tag="AgentStop")
         except Exception as e:
             self.logger.error(f"Error logging agent stop: {e}")
             return False
+
+    # ──────────────────────────────────────────────────────────
+    # Internal helpers
+    # ──────────────────────────────────────────────────────────
+
+    def _get_or_create_daily_gist(self) -> Optional[Any]:
+        """
+        Find or create a private Gist for today's activity log.
+
+        Gist description format:  "[GH-Populator] Activity Log YYYY-MM-DD"
+        This makes it easy to identify across your Gists list.
+        """
+        if not self.user:
+            return None
+
+        date_str = datetime.now().strftime("%Y-%m-%d")
+        gist_description = f"[GH-Populator] Activity Log {date_str}"
+        filename = f"activity_{date_str}.md"
+
+        # Search existing Gists for today's log
+        try:
+            for gist in self.user.get_gists():
+                if gist.description == gist_description:
+                    self.logger.info(f"Found existing Gist for today: {gist.id}")
+                    return gist
+        except Exception as e:
+            self.logger.warning(f"Error searching Gists: {e}")
+
+        # Create a fresh one for today
+        try:
+            header = (
+                f"# GitHub Activity Log – {date_str}\n"
+                f"**User**: {self.github_client.username}  \n"
+                f"**Source**: Autonomous GitHub Populator  \n\n---\n\n"
+            )
+            gist = self.user.create_gist(
+                public=False,
+                files={filename: {"content": header}},
+                description=gist_description
+            )
+            self.logger.info(f"Created new private Gist for today: {gist.id}")
+            return gist
+        except Exception as e:
+            self.logger.error(f"Failed to create Gist: {e}")
+            return None
+
+    def _append_to_gist(self, entry: str, tag: str = "Entry") -> bool:
+        """Append a new log entry to the today's private Gist."""
+        gist = self._get_or_create_daily_gist()
+        if not gist:
+            self.logger.warning("No Gist available — skipping log entry")
+            return False
+
+        date_str = datetime.now().strftime("%Y-%m-%d")
+        filename = f"activity_{date_str}.md"
+
+        try:
+            # Get current content
+            gist_file = gist.files.get(filename)
+            current_content = gist_file.content if gist_file else ""
+
+            # Append new entry
+            new_content = current_content + entry + "\n"
+
+            # Edit the Gist
+            gist.edit(files={filename: {"content": new_content}})
+            self.logger.info(f"Successfully logged [{tag}] to private Gist {gist.id}")
+            return True
+        except Exception as e:
+            self.logger.error(f"Failed to update Gist: {e}")
+            return False
+
+    def _create_log_entry(self,
+                          repository: Dict[str, Any],
+                          feature_idea: Dict[str, Any],
+                          pull_request_url: str,
+                          forked_repo: Dict[str, Any]) -> str:
+        """Create a formatted markdown log entry."""
+        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+        return (
+            f"## [{timestamp}] Contribution Made\n\n"
+            f"| Field | Value |\n"
+            f"|-------|-------|\n"
+            f"| **Target Repo** | [{repository['full_name']}]({repository.get('url', '')}) |\n"
+            f"| **Feature** | {feature_idea['title']} |\n"
+            f"| **Description** | {feature_idea.get('description', '')} |\n"
+            f"| **Pull Request** | [View PR]({pull_request_url}) |\n"
+            f"| **Fork** | {forked_repo['full_name']} |\n"
+            f"| **Branch** | `{feature_idea.get('branch_name', 'unknown')}` |\n"
+            f"| **Feature Type** | {feature_idea.get('feature_type', 'utility')} |\n\n"
+            f"---\n"
+        )
