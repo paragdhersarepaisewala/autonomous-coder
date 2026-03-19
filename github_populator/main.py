@@ -47,8 +47,7 @@ def run_setup(agent):
     lang = input(f"Target Language [{agent.config.get('TARGET_LANGUAGE', 'Python')}]: ")
     if lang: agent.config.set('TARGET_LANGUAGE', lang)
     
-    target_repo = input(f"Target Activity Log Repo [{agent.config.get('TARGET_REPO', 'paragdhersarepaisewala/autonomous-coder')}]: ")
-    if target_repo: agent.config.set('TARGET_REPO', target_repo)
+    print("Activity Logging: Private GitHub Gists (automatic)")
     
     contrib_repo = input(f"Specific Repo to Contribute to (leave blank to search) [{agent.config.get('TARGET_REPO_OVERRIDE', 'none')}]: ")
     if contrib_repo: agent.config.set('TARGET_REPO_OVERRIDE', contrib_repo)

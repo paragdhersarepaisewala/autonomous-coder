@@ -32,9 +32,6 @@ class Config:
 GITHUB_TOKEN=your_github_personal_access_token_here
 GITHUB_USERNAME=your_github_username_here
 
-# Target Repository for Logging Activities
-TARGET_REPO=paragdhersarepaisewala/autonomous-coder
-
 # Agent Behavior Settings
 TARGET_LANGUAGE=Python
 TARGET_CONTRIBUTIONS=3

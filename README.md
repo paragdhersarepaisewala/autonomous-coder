@@ -70,7 +70,7 @@ The setup wizard will prompt you for:
 GitHub Token [not set]: ghp_your_token_here
 GitHub Username [not set]: your_github_username
 Target Language [Python]: Python
-Target Activity Log Repo [paragdhersarepaisewala/autonomous-coder]: your_username/your-log-repo
+Activity Logging: Private GitHub Gists (automatic)
 Specific Repo to Contribute to (leave blank to search) [none]:
 
 Configuration saved to .env file.
@@ -207,10 +207,6 @@ All settings are stored in a `.env` file in the project root. The file is create
 # ─── GitHub Credentials ────────────────────────────────────────────
 GITHUB_TOKEN=ghp_your_personal_access_token
 GITHUB_USERNAME=your_github_username
-
-# ─── Activity Log Repository ────────────────────────────────────────
-# This repo is used to log a record of all contributions made
-TARGET_REPO=your_username/your-log-repo
 
 # ─── Target Repository Override ─────────────────────────────────────
 # If set, the agent will contribute to this specific repo instead of searching
