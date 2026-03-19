@@ -69,6 +69,7 @@ The setup wizard will prompt you for:
 --- GitHub Populator Setup ---
 GitHub Token [not set]: ghp_your_token_here
 GitHub Username [not set]: your_github_username
+Gemini API Key [not set]: your_gemini_api_key_here
 Target Language [Python]: Python
 Activity Logging: Private GitHub Gists (automatic)
 Specific Repo to Contribute to (leave blank to search) [none]:
@@ -76,18 +77,7 @@ Specific Repo to Contribute to (leave blank to search) [none]:
 Configuration saved to .env file.
 ```
 
-> **Note:** The Gemini API Key must be set manually in the `.env` file (see [Configuration](#-configuration)).
-
-### Step 5 — Add Gemini Key to `.env`
-
-Open the created `.env` file and add:
-
-```env
-GEMINI_API_KEY=your_gemini_api_key_here
-GEMINI_MODEL=gemini-2.5-flash
-```
-
-### Step 6 — Run It!
+### Step 5 — Run It!
 
 ```bash
 # Interactive mode (recommended for first run)

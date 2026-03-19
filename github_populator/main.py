@@ -44,6 +44,9 @@ def run_setup(agent):
     username = input(f"GitHub Username [{agent.config.get('GITHUB_USERNAME', 'not set')}]: ")
     if username: agent.config.set('GITHUB_USERNAME', username)
     
+    gemini_key = input(f"Gemini API Key [{agent.config.get('GEMINI_API_KEY', 'not set')}]: ")
+    if gemini_key: agent.config.set('GEMINI_API_KEY', gemini_key)
+    
     lang = input(f"Target Language [{agent.config.get('TARGET_LANGUAGE', 'Python')}]: ")
     if lang: agent.config.set('TARGET_LANGUAGE', lang)
     
