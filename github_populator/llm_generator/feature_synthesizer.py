@@ -12,9 +12,13 @@ from ..utils.config import config
 class LLMSynthesizedFeatureGenerator:
     """Generates features using LLM with fallback to template-based generation."""
     
-    def __init__(self):
+    def __init__(self, config_obj=None):
         """Initialize the LLM feature synthesizer."""
         self.logger = logging.getLogger(__name__)
+        
+        # Use provided config or fall back to global config
+        from ..utils.config import config as global_config
+        self.config = config_obj if config_obj else global_config
         
         # Initialize components
         try:
@@ -35,11 +39,11 @@ class LLMSynthesizedFeatureGenerator:
         self.template_generator = TemplateFeatureGenerator()
         
         # Configuration
-        self.feature_type = config.get('FEATURE_TYPE', 'utility')
-        self.use_llm_first = config.get('USE_LLM_FIRST', 'true').lower() == 'true'
-        self.fallback_to_templates = config.get('FALLBACK_TO_TEMPLATES', 'true').lower() == 'true'
-        self.max_llm_retries = config.get_int('MAX_LLM_RETRIES', 2)
-        self.llm_retry_delay = config.get_int('LLM_RETRY_DELAY', 2)  # seconds
+        self.feature_type = self.config.get('FEATURE_TYPE', 'utility')
+        self.use_llm_first = self.config.get('USE_LLM_FIRST', 'true').lower() == 'true'
+        self.fallback_to_templates = self.config.get('FALLBACK_TO_TEMPLATES', 'true').lower() == 'true'
+        self.max_llm_retries = self.config.get_int('MAX_LLM_RETRIES', 2)
+        self.llm_retry_delay = self.config.get_int('LLM_RETRY_DELAY', 2)  # seconds
     
     def generate_feature(self, 
                         repository: Dict[str, Any], 
@@ -241,6 +245,22 @@ class LLMSynthesizedFeatureGenerator:
                     file_content = ""
                 else:
                     file_content = content_parts[1].rstrip()  # Remove trailing whitespace
+                
+                # Robust parsing: Remove markdown code block markers if present
+                # LLMs often use ```python ... ``` even when told not to.
+                if file_content.strip().startswith('```'):
+                    lines = file_content.split('\n')
+                    # Find the first line that isn't a code block marker
+                    start_idx = 0
+                    if lines[0].strip().startswith('```'):
+                        start_idx = 1
+                    
+                    # Find the last line that isn't a code block marker
+                    end_idx = len(lines)
+                    if lines[-1].strip() == '```':
+                        end_idx = -1
+                    
+                    file_content = '\n'.join(lines[start_idx:end_idx]).strip()
                 
                 # Validate that we have a reasonable file path
                 if not file_path or '/' in file_path and '..' in file_path:

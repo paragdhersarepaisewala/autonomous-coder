@@ -30,7 +30,7 @@ class AutonomousAgentController:
         # Initialize modules
         self.repository_discoverer = RepositoryDiscoverer(self.github_client)
         self.context_analyzer = ContextAnalyzer()
-        self.feature_generator = FeatureGenerator()
+        self.feature_generator = FeatureGenerator(config_obj=self.config)
         self.contribution_executor = ContributionExecutor(self.github_client)
         self.activity_logger = ActivityLogger(self.github_client)
         

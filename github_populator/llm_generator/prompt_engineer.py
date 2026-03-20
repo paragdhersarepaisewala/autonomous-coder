@@ -145,7 +145,7 @@ class PromptEngineer:
                 "",
                 "## IMPORTANT CONSTRAINTS:",
                 "- Generate ONLY code - no explanations outside the specified format",
-                "- Do not include markdown code blocks or backticks",
+                "- Do NOT include markdown code blocks (```) or backticks around the code",
                 "- Ensure all file paths are relative to the repository root",
                 "- Generate code that can stand alone and be immediately useful",
                 "",
