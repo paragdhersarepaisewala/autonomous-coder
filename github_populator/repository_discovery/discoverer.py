@@ -85,10 +85,15 @@ class RepositoryDiscoverer:
             return []
     
     def get_repository(self, full_name: str) -> Optional[Dict]:
-        """Get details for a specific repository by its full name."""
+        """Get details for a specific repository by its full name or URL."""
         try:
-            self.logger.info(f"Retrieving repository: {full_name}")
-            repo = self.github.get_repo(full_name)
+            # Handle full URL if provided
+            name_to_fetch = full_name
+            if 'github.com/' in full_name:
+                name_to_fetch = full_name.split('github.com/')[-1].strip('/')
+            
+            self.logger.info(f"Retrieving repository: {name_to_fetch}")
+            repo = self.github.get_repo(name_to_fetch)
             
             return {
                 'id': repo.id,
